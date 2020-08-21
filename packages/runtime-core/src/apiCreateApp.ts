@@ -108,6 +108,9 @@ export type CreateAppFunction<HostElement> = (
   rootProps?: Data | null
 ) => App<HostElement>
 
+/**
+ *  创建 vue实例的方法 ，返回的对象继承App接口（本文件19行），里面有一些属性和方法，例如 mount ， use
+ * */
 export function createAppAPI<HostElement>(
   render: RootRenderFunction,
   hydrate?: RootHydrateFunction
@@ -205,15 +208,19 @@ export function createAppAPI<HostElement>(
         context.directives[name] = directive
         return app
       },
-
+      // 各个平台的重写mount方法里，执行完平台特有的代码逻辑后， 都会执行这个统一的mount方法，来做vnode的创建和渲染
       mount(rootContainer: HostElement, isHydrate?: boolean): any {
+        // 未曾 mount 过
         if (!isMounted) {
+          // 创建vnode
           const vnode = createVNode(rootComponent as Component, rootProps)
           // store app context on the root VNode.
           // this will be set on the root instance on initial mount.
           vnode.appContext = context
 
           // HMR root reload
+          // 热更新 ， 在开发模式下，给context 的reload 方法会在文件修改后触发，从而触发这里的重新渲染vnode
+          // TODO 在哪里触发的 context.reload
           if (__DEV__) {
             context.reload = () => {
               render(cloneVNode(vnode), rootContainer)
@@ -233,7 +240,7 @@ export function createAppAPI<HostElement>(
           if (__DEV__ || __FEATURE_PROD_DEVTOOLS__) {
             devtoolsInitApp(app, version)
           }
-
+          // TODO 这里返回的 proxy 是什么
           return vnode.component!.proxy
         } else if (__DEV__) {
           warn(

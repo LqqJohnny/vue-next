@@ -368,6 +368,8 @@ export const setRef = (
  *   ...nodeOps
  * })
  * ```
+ * 
+ * 这里是统一的生成 renderer 实例的方法，不同平台也可以定制自己的 生成renderer方法 
  */
 export function createRenderer<
   HostNode = RendererNode,
@@ -384,6 +386,7 @@ export function createHydrationRenderer(
 ) {
   return baseCreateRenderer(options, createHydrationFunctions)
 }
+// 以下重载了多个 baseCreateRenderer 方法用以兼容不同传参类型的情况
 
 // overload 1: no hydration
 function baseCreateRenderer<
@@ -397,7 +400,8 @@ function baseCreateRenderer(
   createHydrationFns: typeof createHydrationFunctions
 ): HydrationRenderer
 
-// implementation
+// implementation 
+// baseCreateRenderer 最终都会走进这个方法
 function baseCreateRenderer(
   options: RendererOptions,
   createHydrationFns?: typeof createHydrationFunctions
@@ -426,6 +430,7 @@ function baseCreateRenderer(
 
   // Note: functions inside this closure should use `const xxx = () => {}`
   // style in order to prevent being inlined by minifiers.
+  // patch 方法 ， 比较新老vnode的差异，创建或者更新DOM节点/组件实例，如果是首次的话，那么就创建DOM或者组件实例。
   const patch: PatchFn = (
     n1,
     n2,
@@ -437,6 +442,7 @@ function baseCreateRenderer(
     optimized = false
   ) => {
     // patching & not same type, unmount old tree
+    // 如果 新旧节点的类型不一样 直接将旧节点 unmount 然后设置 n1为null ，保证下面的代码会走到直接创建新节点（ n1 == null 的判断）
     if (n1 && !isSameVNodeType(n1, n2)) {
       anchor = getNextHostNode(n1)
       unmount(n1, parentComponent, parentSuspense, true)
@@ -450,12 +456,15 @@ function baseCreateRenderer(
 
     const { type, ref, shapeFlag } = n2
     switch (type) {
+      // 文字节点
       case Text:
         processText(n1, n2, container, anchor)
         break
+      // 注释
       case Comment:
         processCommentNode(n1, n2, container, anchor)
         break
+      // 字符串化的html代码 
       case Static:
         if (n1 == null) {
           mountStaticNode(n2, container, anchor, isSVG)
@@ -476,7 +485,7 @@ function baseCreateRenderer(
         )
         break
       default:
-        if (shapeFlag & ShapeFlags.ELEMENT) {
+        if (shapeFlag & ShapeFlags.ELEMENT) {   // dom 元素
           processElement(
             n1,
             n2,
@@ -487,7 +496,7 @@ function baseCreateRenderer(
             isSVG,
             optimized
           )
-        } else if (shapeFlag & ShapeFlags.COMPONENT) {
+        } else if (shapeFlag & ShapeFlags.COMPONENT) {  // vue组件
           processComponent(
             n1,
             n2,
@@ -532,7 +541,14 @@ function baseCreateRenderer(
       setRef(ref, n1 && n1.ref, parentComponent, parentSuspense, n2)
     }
   }
-
+/**
+ *  比较两个文字节点的文字内容是否一样 不一样则使用新节点的文案
+ * 
+ * @param n1  oldnode 
+ * @param n2  newnode
+ * @param container 容器元素 
+ * @param anchor 
+ */
   const processText: ProcessTextOrCommentFn = (n1, n2, container, anchor) => {
     if (n1 == null) {
       hostInsert(
@@ -640,6 +656,17 @@ function baseCreateRenderer(
     hostRemove(vnode.anchor!)
   }
 
+  /**
+   * 比较两个新旧dom元素节点是否有变化，有则采用新节点
+   * @param n1 旧节点
+   * @param n2 新节点
+   * @param container 
+   * @param anchor 
+   * @param parentComponent 
+   * @param parentSuspense 
+   * @param isSVG 
+   * @param optimized 
+   */
   const processElement = (
     n1: VNode | null,
     n2: VNode,

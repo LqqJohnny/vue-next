@@ -1,3 +1,8 @@
+/**
+ * 给 dom 节点封装的一些 原生js方法，便于在操作dom的时候调用
+ * 
+ */
+
 import { RendererOptions } from '@vue/runtime-core'
 
 export const svgNS = 'http://www.w3.org/2000/svg'

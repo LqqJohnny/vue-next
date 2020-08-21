@@ -291,7 +291,7 @@ const normalizeRef = ({ ref }: VNodeProps): VNode['ref'] => {
       : [currentRenderingInstance!, ref]
     : null) as any
 }
-
+// 根据 __DEV__ 环境调用不同的方法，但最终都是调用 _createVNode 只是参数 有所变化
 export const createVNode = (__DEV__
   ? createVNodeWithArgsTransform
   : _createVNode) as typeof _createVNode
