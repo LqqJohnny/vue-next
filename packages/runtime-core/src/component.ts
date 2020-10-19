@@ -568,7 +568,9 @@ export function handleSetupResult(
     // setup returned bindings.
     // assuming a render function compiled from template is present.
     // 将 setup方法的返回值 赋值 给 setupState， 这样在 instance.ctx 代理之后，模板渲染中就可以使用setup返回的值
-    // proxyRefs 将 setupResult 变成响应式数据
+    // proxyRefs 根据情况将 setupResult 变成响应式数据 
+    // setupResult 返回的数据是否是响应式 是由setup函数中是否用了 reactive() 函数处理 决定的
+    // 内部不会强行处理成响应式数据
     instance.setupState = proxyRefs(setupResult)
     if (__DEV__) {
       exposeSetupStateOnRenderContext(instance)

@@ -39,9 +39,14 @@ const arrayInstrumentations: Record<string, Function> = {}
     }
   }
 })
-
+/**
+ * 返回一个get方法 ， 用于处理响应化处理中的 get
+ * @param isReadonly 是否只读属性
+ * @param shallow 浅处理
+ */
 function createGetter(isReadonly = false, shallow = false) {
   return function get(target: Target, key: string | symbol, receiver: object) {
+    // 对一些特殊的key 做代理
     if (key === ReactiveFlags.IS_REACTIVE) {
       return !isReadonly
     } else if (key === ReactiveFlags.IS_READONLY) {
@@ -55,7 +60,7 @@ function createGetter(isReadonly = false, shallow = false) {
     ) {
       return target
     }
-
+    // 处理数组
     const targetIsArray = isArray(target)
     if (targetIsArray && hasOwn(arrayInstrumentations, key)) {
       return Reflect.get(arrayInstrumentations, key, receiver)
@@ -70,7 +75,7 @@ function createGetter(isReadonly = false, shallow = false) {
     ) {
       return res
     }
-
+    // 依赖收集 
     if (!isReadonly) {
       track(target, TrackOpTypes.GET, key)
     }
@@ -152,13 +157,13 @@ function ownKeys(target: object): (string | number | symbol)[] {
   track(target, TrackOpTypes.ITERATE, ITERATE_KEY)
   return Reflect.ownKeys(target)
 }
-
+// 响应化处理函数 包含 get set has 等基础方法
 export const mutableHandlers: ProxyHandler<object> = {
-  get,
-  set,
-  deleteProperty,
-  has,
-  ownKeys
+  get,              // 获取数据是的处理方法 ==> createGetter  【重要】
+  set,              // 设置数据是的处理方法 ==> createSetter  【重要】
+  deleteProperty,   // 删除数据 ==> deleteProperty
+  has,              // 判断是否含有某个字段名 ==>  L142
+  ownKeys           //  获取所有的字段名==> L150
 }
 
 export const readonlyHandlers: ProxyHandler<object> = {

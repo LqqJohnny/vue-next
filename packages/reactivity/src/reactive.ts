@@ -50,7 +50,13 @@ function targetTypeMap(rawType: string) {
       return TargetType.INVALID
   }
 }
-
+/**
+ * 判断对象的类型并返回
+ * @param value 需要判断的对象
+ * 
+ * 带 __v_skip 属性的对象 || 不可扩展的对象将会定义为  INVALID 
+ * 否则就返回对象对应的 类型 
+ */
 function getTargetType(value: Target) {
   return value[ReactiveFlags.SKIP] || !Object.isExtensible(value)
     ? TargetType.INVALID
@@ -60,6 +66,7 @@ function getTargetType(value: Target) {
 // only unwrap nested ref
 type UnwrapNestedRefs<T> = T extends Ref ? T : UnwrapRef<T>
 
+// 导出 reactive 方法 ， 可用于将数据变成响应式 常用于 setup方法中自定义一些响应式数据
 export function reactive<T extends object>(target: T): UnwrapNestedRefs<T>
 export function reactive(target: object) {
   // if trying to observe a readonly proxy, return the readonly version.
@@ -134,12 +141,22 @@ export function shallowReadonly<T extends object>(
   )
 }
 
+/**
+ * 内部 创建响应式数据的方法
+ * 
+ * @param target   需要响应化处理的对象
+ * @param isReadonly 是否只读
+ * @param baseHandlers 
+ * @param collectionHandlers 
+ */
 function createReactiveObject(
   target: Target,
   isReadonly: boolean,
   baseHandlers: ProxyHandler<any>,
   collectionHandlers: ProxyHandler<any>
 ) {
+
+  // 非对象的数据 无法响应化处理 直接返回原对象
   if (!isObject(target)) {
     if (__DEV__) {
       console.warn(`value cannot be made reactive: ${String(target)}`)
@@ -148,6 +165,7 @@ function createReactiveObject(
   }
   // target is already a Proxy, return it.
   // exception: calling readonly() on a reactive object
+  // 已经响应化的数据 直接返回
   if (
     target[ReactiveFlags.RAW] &&
     !(isReadonly && target[ReactiveFlags.IS_REACTIVE])
@@ -155,6 +173,7 @@ function createReactiveObject(
     return target
   }
   // target already has corresponding Proxy
+  // 数据对象已经有对应的 proxy 代理
   const reactiveFlag = isReadonly
     ? ReactiveFlags.READONLY
     : ReactiveFlags.REACTIVE
@@ -162,15 +181,18 @@ function createReactiveObject(
     return target[reactiveFlag]
   }
   // only a whitelist of value types can be observed.
+  // 有些不在白名单类型中的 数据 ， 无法响应化
   const targetType = getTargetType(target)
   if (targetType === TargetType.INVALID) {
     return target
   }
+  // 通过 proxy api 对target 做响应化 处理，并且根据不同的 targetType 类型来调用对应的处理函数
   const observed = new Proxy(
     target,
     targetType === TargetType.COLLECTION ? collectionHandlers : baseHandlers
   )
   def(target, reactiveFlag, observed)
+  // 返回 响应化处理后的对象
   return observed
 }
 

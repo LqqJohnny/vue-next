@@ -134,7 +134,7 @@ export function resetTracking() {
   const last = trackStack.pop()
   shouldTrack = last === undefined ? true : last
 }
-
+// 收集依赖方法 所有的依赖都存进了  targetMap 中 
 export function track(target: object, type: TrackOpTypes, key: unknown) {
   if (!shouldTrack || activeEffect === undefined) {
     return
@@ -149,6 +149,7 @@ export function track(target: object, type: TrackOpTypes, key: unknown) {
   }
   if (!dep.has(activeEffect)) {
     dep.add(activeEffect)
+    // deps集合存储依赖的副作用函数
     activeEffect.deps.push(dep)
     if (__DEV__ && activeEffect.options.onTrack) {
       activeEffect.options.onTrack({
