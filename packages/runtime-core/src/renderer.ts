@@ -455,6 +455,7 @@ function baseCreateRenderer(
     }
 
     const { type, ref, shapeFlag } = n2
+    // 根据新节点的类型， 做不同的处理。
     switch (type) {
       // 文字节点
       case Text:
@@ -1171,6 +1172,7 @@ function baseCreateRenderer(
           optimized
         )
       } else {
+        // 挂载组件 - 初始化
         mountComponent(
           n2,
           container,
@@ -1182,10 +1184,11 @@ function baseCreateRenderer(
         )
       }
     } else {
+      // 更新组件
       updateComponent(n1, n2, optimized)
     }
   }
-
+  // 主要做了三件事 1.创建组件实例、2.设置组件实例、3.设置并运行带副作用的渲染函数。
   const mountComponent: MountComponentFn = (
     initialVNode,
     container,
@@ -1195,6 +1198,7 @@ function baseCreateRenderer(
     isSVG,
     optimized
   ) => {
+    // 创建组件实例
     const instance: ComponentInternalInstance = (initialVNode.component = createComponentInstance(
       initialVNode,
       parentComponent,
@@ -1219,6 +1223,7 @@ function baseCreateRenderer(
     if (__DEV__) {
       startMeasure(instance, `init`)
     }
+    // 设置组件实例
     setupComponent(instance)
     if (__DEV__) {
       endMeasure(instance, `init`)
@@ -1241,7 +1246,7 @@ function baseCreateRenderer(
       }
       return
     }
-
+    // 设置并运行带副作用的【渲染】函数
     setupRenderEffect(
       instance,
       initialVNode,
@@ -1303,6 +1308,7 @@ function baseCreateRenderer(
     optimized
   ) => {
     // create reactive effect for rendering
+    // 创建响应式的带副作用渲染函数
     instance.update = effect(function componentEffect() {
       if (!instance.isMounted) {
         let vnodeHook: VNodeHook | null | undefined
@@ -1311,6 +1317,7 @@ function baseCreateRenderer(
         if (__DEV__) {
           startMeasure(instance, `render`)
         }
+        // 渲染组件生成子树vnode
         const subTree = (instance.subTree = renderComponentRoot(instance))
         if (__DEV__) {
           endMeasure(instance, `render`)
@@ -1341,6 +1348,7 @@ function baseCreateRenderer(
           if (__DEV__) {
             startMeasure(instance, `patch`)
           }
+          // 把子树vnode挂载到container
           patch(
             null,
             subTree,
@@ -1353,10 +1361,12 @@ function baseCreateRenderer(
           if (__DEV__) {
             endMeasure(instance, `patch`)
           }
+          // 保留渲染生成的子树根 DOM 节点
           initialVNode.el = subTree.el
         }
         // mounted hook
         if (m) {
+          // queuePostRenderEffect 加入事件队列之后依次执行
           queuePostRenderEffect(m, parentSuspense)
         }
         // onVnodeMounted
@@ -1630,6 +1640,7 @@ function baseCreateRenderer(
   }
 
   // can be all-keyed or mixed
+  // diff 算法核心逻辑 
   const patchKeyedChildren = (
     c1: VNode[],
     c2: VNodeArrayChildren,
@@ -1648,6 +1659,7 @@ function baseCreateRenderer(
     // 1. sync from start
     // (a b) c
     // (a b) d e
+    // 同步头部节点   通过key来判断是同一个节点，然后通过patch去更新
     while (i <= e1 && i <= e2) {
       const n1 = c1[i]
       const n2 = (c2[i] = optimized
@@ -1673,6 +1685,7 @@ function baseCreateRenderer(
     // 2. sync from end
     // a (b c)
     // d e (b c)
+    // 同步尾部节点   通过key来判断是同一个节点，然后通过patch去更新
     while (i <= e1 && i <= e2) {
       const n1 = c1[e1]
       const n2 = (c2[e2] = optimized
@@ -1703,6 +1716,7 @@ function baseCreateRenderer(
     // (a b)
     // c (a b)
     // i = 0, e1 = -1, e2 = 0
+    // 处理新增的节点
     if (i > e1) {
       if (i <= e2) {
         const nextPos = e2 + 1
@@ -1731,6 +1745,7 @@ function baseCreateRenderer(
     // a (b c)
     // (b c)
     // i = 0, e1 = 0, e2 = -1
+    // 删除 节点  解除挂载
     else if (i > e2) {
       while (i <= e1) {
         unmount(c1[i], parentComponent, parentSuspense, true)
@@ -1742,11 +1757,15 @@ function baseCreateRenderer(
     // [i ... e1 + 1]: a b [c d e] f g
     // [i ... e2 + 1]: a b [e d c h] f g
     // i = 2, e1 = 4, e2 = 5
+    // 剩下的就是 未知序列 ，也就是乱序的。
+    // 乱序的序列中有的元素是已经有的，只需要移动到对应位置即可，可节省时间，而新增和删除的就做对应的操作
+    // 所以这里处理的难点就是 如何快速找到已有节点并移动
     else {
       const s1 = i // prev starting index
       const s2 = i // next starting index
 
       // 5.1 build key:index map for newChildren
+      // 根据绑定的key新建索引
       const keyToNewIndexMap: Map<string | number, number> = new Map()
       for (i = s2; i <= e2; i++) {
         const nextChild = (c2[i] = optimized
@@ -1825,8 +1844,9 @@ function baseCreateRenderer(
         }
       }
 
-      // 5.3 move and mount
+      // 5.3 move and mount  移动和挂载新节点
       // generate longest stable subsequence only when nodes have moved
+      // 最长递增子序列 ？
       const increasingNewIndexSequence = moved
         ? getSequence(newIndexToOldIndexMap)
         : EMPTY_ARR

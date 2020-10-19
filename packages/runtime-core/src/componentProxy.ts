@@ -199,8 +199,9 @@ export interface ComponentRenderContext {
   [key: string]: any
   _: ComponentInternalInstance
 }
-
+// 给 instance.ctx 创建 proxy 的方法
 export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
+  // proxy 的get方法
   get({ _: instance }: ComponentRenderContext, key: string) {
     const {
       ctx,
@@ -225,9 +226,11 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
     // prototype) to memoize what access type a key corresponds to.
     let normalizedProps
     if (key[0] !== '$') {
-      const n = accessCache![key]
+      const n = accessCache![key] // 查看缓存
       if (n !== undefined) {
-        switch (n) {
+        switch (n) {    
+          // 如果已经在缓存，根据缓存的类型 从不同的属性里取值
+          // setupState / data / props / ctx（用户自定义数据赋值,也就是后续动态新增的字段）
           case AccessTypes.SETUP:
             return setupState[key]
           case AccessTypes.DATA:
@@ -238,7 +241,11 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
             return props![key]
           // default: just fallthrough
         }
-      } else if (setupState !== EMPTY_OBJ && hasOwn(setupState, key)) {
+      }
+      // 缓存中没有 ， 那就一个一个的查，知道找到该 key，找到之后同时加入缓存，以便后续重复查找  （ setupState / data / props / ctx  ）
+      // 这里的顺序很重要  这决定了 当有重名属性时 优先取那个对象里的数据。
+      // 可以看到优先顺序是 【 setupState > data > props > ctx 】
+      else if (setupState !== EMPTY_OBJ && hasOwn(setupState, key)) {
         accessCache![key] = AccessTypes.SETUP
         return setupState[key]
       } else if (data !== EMPTY_OBJ && hasOwn(data, key)) {
@@ -259,7 +266,7 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
         accessCache![key] = AccessTypes.OTHER
       }
     }
-
+    //  处理 以 $ 开头的 特殊公开属性 如  $attr
     const publicGetter = publicPropertiesMap[key]
     let cssModule, globalProperties
     // public $xxx properties
@@ -308,13 +315,14 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
       }
     }
   },
-
+  //  proxy 的set 方法
   set(
     { _: instance }: ComponentRenderContext,
     key: string,
     value: any
   ): boolean {
     const { data, setupState, ctx } = instance
+    // 在 4 个对象里寻找字段， 存在 则更新对应值
     if (setupState !== EMPTY_OBJ && hasOwn(setupState, key)) {
       setupState[key] = value
     } else if (data !== EMPTY_OBJ && hasOwn(data, key)) {
@@ -327,6 +335,7 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
         )
       return false
     }
+    // 以 $ 开头的特殊保留属性是不允许修改的，给出错误提醒
     if (key[0] === '$' && key.slice(1) in instance) {
       __DEV__ &&
         warn(
@@ -348,13 +357,15 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
     }
     return true
   },
-
+  // 判断属性是否存在于 instance.ctx
   has(
     {
       _: { data, setupState, accessCache, ctx, type, appContext }
     }: ComponentRenderContext,
     key: string
   ) {
+    // 依次判断 key 是否存在于 
+    //  accessCache(访问缓存)、data、setupState、props 、用户数据、公开属性以及全局属性中
     let normalizedProps
     return (
       accessCache![key] !== undefined ||

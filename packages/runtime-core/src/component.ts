@@ -337,7 +337,7 @@ export interface ComponentInternalInstance {
 const emptyAppContext = createAppContext()
 
 let uid = 0
-
+// 创建一个 组件实例 
 export function createComponentInstance(
   vnode: VNode,
   parent: ComponentInternalInstance | null,
@@ -441,6 +441,7 @@ export function validateComponentName(name: string, config: AppConfig) {
 
 export let isInSSRComponentSetup = false
 
+// 设置组件实例  为组件实例设置一些属性。
 export function setupComponent(
   instance: ComponentInternalInstance,
   isSSR = false
@@ -449,16 +450,18 @@ export function setupComponent(
 
   const { props, children, shapeFlag } = instance.vnode
   const isStateful = shapeFlag & ShapeFlags.STATEFUL_COMPONENT
+  // 初始化 props
   initProps(instance, props, isStateful, isSSR)
+  // 初始化 插槽
   initSlots(instance, children)
-
+  // 有状态组件 需要额外调用一次 setupStatefulComponent 
   const setupResult = isStateful
     ? setupStatefulComponent(instance, isSSR)
     : undefined
   isInSSRComponentSetup = false
   return setupResult
 }
-
+// 设置有状态的组件实例
 function setupStatefulComponent(
   instance: ComponentInternalInstance,
   isSSR: boolean
@@ -483,14 +486,26 @@ function setupStatefulComponent(
     }
   }
   // 0. create render proxy property access cache
+  // 创建 渲染代理proxy的属性访问缓存
   instance.accessCache = {}
   // 1. create public instance / render proxy
   // also mark it raw so it's never observed
+  /** 创建 代理proxy    
+   *  为什么要对instance.ctx做一次代理
+   *  在 vue2.0中也有一个代理，就是 _data 代理到 data  访问 this.name 其实访问的是 this._data.name
+   *  其实这里也是一样的 到了 vue3.0 ，instance.ctx 就是这个 _data ，为了方便用户使用也用了一次proxy代理
+   *  这样的话， 你可以直接使用 data props ctx setupState 中的数据， 而不需要写成 instance.ctx.xxx
+   *  
+   * PublicInstanceProxyHandlers 代理的方法
+   * */
   instance.proxy = new Proxy(instance.ctx, PublicInstanceProxyHandlers)
+
   if (__DEV__) {
     exposePropsOnRenderContext(instance)
   }
   // 2. call setup()
+  // 如果 该组件实例中有setup方法则执行方法并获取到返回值 
+  // 获取到结果后 在 handleSetupResult 方法中处理
   const { setup } = Component
   if (setup) {
     const setupContext = (instance.setupContext =
@@ -498,6 +513,7 @@ function setupStatefulComponent(
 
     currentInstance = instance
     pauseTracking()
+    // callWithErrorHandling 执行setup并在有错误的时候 捕获抛出
     const setupResult = callWithErrorHandling(
       setup,
       instance,
@@ -527,10 +543,11 @@ function setupStatefulComponent(
       handleSetupResult(instance, setupResult, isSSR)
     }
   } else {
+    // 没有 setup方法 就直接 执行 完成组件设置函数
     finishComponentSetup(instance, isSSR)
   }
 }
-
+// 处理 执行setup之后的结果
 export function handleSetupResult(
   instance: ComponentInternalInstance,
   setupResult: unknown,
@@ -538,6 +555,8 @@ export function handleSetupResult(
 ) {
   if (isFunction(setupResult)) {
     // setup returned an inline render function
+    // setup 返回了一个渲染函数
+    // setup 有可能直接返回一个 render 函数 ， 这个组件没有<template> 
     instance.render = setupResult as InternalRenderFunction
   } else if (isObject(setupResult)) {
     if (__DEV__ && isVNode(setupResult)) {
@@ -548,6 +567,8 @@ export function handleSetupResult(
     }
     // setup returned bindings.
     // assuming a render function compiled from template is present.
+    // 将 setup方法的返回值 赋值 给 setupState， 这样在 instance.ctx 代理之后，模板渲染中就可以使用setup返回的值
+    // proxyRefs 将 setupResult 变成响应式数据
     instance.setupState = proxyRefs(setupResult)
     if (__DEV__) {
       exposeSetupStateOnRenderContext(instance)
@@ -559,6 +580,7 @@ export function handleSetupResult(
       }`
     )
   }
+  // 完成组件设置
   finishComponentSetup(instance, isSSR)
 }
 
@@ -576,14 +598,14 @@ let compile: CompileFunction | undefined
 export function registerRuntimeCompiler(_compile: any) {
   compile = _compile
 }
-
+// 函数主要做了两件事情：标准化模板或者渲染函数和兼容 Options API
 function finishComponentSetup(
   instance: ComponentInternalInstance,
   isSSR: boolean
 ) {
   const Component = instance.type as ComponentOptions
 
-  // template / render function normalization
+  // template / render function normalization  标准化模板或者渲染函数
   if (__NODE_JS__ && isSSR) {
     if (Component.render) {
       instance.render = Component.render as InternalRenderFunction
@@ -617,6 +639,7 @@ function finishComponentSetup(
   }
 
   // support for 2.x options
+  // 兼容 vue2.X 版本
   if (__FEATURE_OPTIONS_API__) {
     currentInstance = instance
     applyOptions(instance, Component)
@@ -624,6 +647,7 @@ function finishComponentSetup(
   }
 
   // warn missing template/render
+  // template 和 render函数 都没有的时候 做出错误提示
   if (__DEV__ && !Component.render && instance.render === NOOP) {
     /* istanbul ignore if */
     if (!compile && Component.template) {
