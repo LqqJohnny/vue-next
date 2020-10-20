@@ -293,7 +293,7 @@ iteratorMethods.forEach(method => {
     true
   )
 })
-
+// 返回一个方法用作 proxy 的参数 ，在该方法内 没有进行依赖收集 track
 function createInstrumentationGetter(isReadonly: boolean, shallow: boolean) {
   const instrumentations = shallow
     ? shallowInstrumentations
@@ -323,7 +323,7 @@ function createInstrumentationGetter(isReadonly: boolean, shallow: boolean) {
     )
   }
 }
-
+// 主要是对 set、map、weakSet、weakMap 四种类型的对象进行劫持
 export const mutableCollectionHandlers: ProxyHandler<CollectionTypes> = {
   get: createInstrumentationGetter(false, false)
 }

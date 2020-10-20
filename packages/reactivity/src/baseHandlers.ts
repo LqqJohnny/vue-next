@@ -125,9 +125,9 @@ function createSetter(shallow = false) {
     const result = Reflect.set(target, key, value, receiver)
     // don't trigger if target is something up in the prototype chain of original
     if (target === toRaw(receiver)) {
-      if (!hadKey) {
+      if (!hadKey) {    // 新加字段名 触发 add 事件
         trigger(target, TriggerOpTypes.ADD, key, value)
-      } else if (hasChanged(value, oldValue)) {
+      } else if (hasChanged(value, oldValue)) { // 已有字段名且新旧值不同，触发 set事件
         trigger(target, TriggerOpTypes.SET, key, value, oldValue)
       }
     }

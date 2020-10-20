@@ -161,7 +161,7 @@ export function track(target: object, type: TrackOpTypes, key: unknown) {
     }
   }
 }
-
+// 数据更新，触发prodxy setter函数，派发通知
 export function trigger(
   target: object,
   type: TriggerOpTypes,
@@ -170,8 +170,9 @@ export function trigger(
   oldValue?: unknown,
   oldTarget?: Map<unknown, unknown> | Set<unknown>
 ) {
+  // 依赖集合 ， 在getter中收集的依赖都放在 targetMap 中
   const depsMap = targetMap.get(target)
-  if (!depsMap) {
+  if (!depsMap) { //没有收集过对应的依赖 直接返回
     // never been tracked
     return
   }
