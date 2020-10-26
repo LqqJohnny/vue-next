@@ -74,18 +74,27 @@ export interface ParserContext {
   inVPre: boolean // v-pre, do not process directives and interpolations
 }
 
+/**
+ *  根据 template 生成 ast树的方法
+ * @param content template 字符串
+ * @param options 转换的参数
+ */
 export function baseParse(
   content: string,
   options: ParserOptions = {}
 ): RootNode {
+  // 1.创建解析上下文
   const context = createParserContext(content, options)
   const start = getCursor(context)
+  // 3.创建根节点
   return createRoot(
+    // 2.解析子节点 
     parseChildren(context, TextModes.DATA, []),
     getSelection(context, start)
   )
 }
 
+// 创建解析上下文  返回一个对象，包含解析过程中会用到的一些配置和信息
 function createParserContext(
   content: string,
   rawOptions: ParserOptions
@@ -106,7 +115,7 @@ function createParserContext(
     inVPre: false
   }
 }
-
+// 解析子节点
 function parseChildren(
   context: ParserContext,
   mode: TextModes,
@@ -115,7 +124,9 @@ function parseChildren(
   const parent = last(ancestors)
   const ns = parent ? parent.ns : Namespaces.HTML
   const nodes: TemplateChildNode[] = []
-
+  // 深度优先遍历  根据节点的类型做不同的处理，生成一个 node，放入nodes数组
+  // 这里的node是AST的节点
+  // 循环内部 如果当前节点还有子元素， 那在该元素的处理方法中会再次调用 parseChildren ，递归处理整棵树。
   while (!isEnd(context, mode, ancestors)) {
     __TEST__ && assert(context.source.length > 0)
     const s = context.source
@@ -124,6 +135,7 @@ function parseChildren(
     if (mode === TextModes.DATA || mode === TextModes.RCDATA) {
       if (!context.inVPre && startsWith(s, context.options.delimiters[0])) {
         // '{{'
+        // 处理 插值 文本 vue的插槽语法
         node = parseInterpolation(context, mode)
       } else if (mode === TextModes.DATA && s[0] === '<') {
         // https://html.spec.whatwg.org/multipage/parsing.html#tag-open-state
@@ -131,12 +143,12 @@ function parseChildren(
           emitError(context, ErrorCodes.EOF_BEFORE_TAG_NAME, 1)
         } else if (s[1] === '!') {
           // https://html.spec.whatwg.org/multipage/parsing.html#markup-declaration-open-state
-          if (startsWith(s, '<!--')) {
+          if (startsWith(s, '<!--')) {        // 处理 注释
             node = parseComment(context)
-          } else if (startsWith(s, '<!DOCTYPE')) {
+          } else if (startsWith(s, '<!DOCTYPE')) {  // 处理 document生命配置标签
             // Ignore DOCTYPE by a limitation.
             node = parseBogusComment(context)
-          } else if (startsWith(s, '<![CDATA[')) {
+          } else if (startsWith(s, '<![CDATA[')) {  
             if (ns !== Namespaces.HTML) {
               node = parseCDATA(context, ancestors)
             } else {
@@ -147,7 +159,7 @@ function parseChildren(
             emitError(context, ErrorCodes.INCORRECTLY_OPENED_COMMENT)
             node = parseBogusComment(context)
           }
-        } else if (s[1] === '/') {
+        } else if (s[1] === '/') {   // 处理 </*** */ > 结束标签
           // https://html.spec.whatwg.org/multipage/parsing.html#end-tag-open-state
           if (s.length === 2) {
             emitError(context, ErrorCodes.EOF_BEFORE_TAG_NAME, 2)
@@ -168,6 +180,7 @@ function parseChildren(
             node = parseBogusComment(context)
           }
         } else if (/[a-z]/i.test(s[1])) {
+          // 元素节点的解析 
           node = parseElement(context, ancestors)
         } else if (s[1] === '?') {
           emitError(
@@ -182,6 +195,7 @@ function parseChildren(
       }
     }
     if (!node) {
+      //  普通文本的 解析 
       node = parseText(context, mode)
     }
 
@@ -196,6 +210,7 @@ function parseChildren(
 
   // Whitespace management for more efficient output
   // (same as v2 whitespace: 'condense')
+  // 空白字符管理 
   let removedWhitespace = false
   if (mode !== TextModes.RAWTEXT) {
     if (!context.inPre) {
@@ -248,7 +263,7 @@ function parseChildren(
       }
     }
   }
-
+  // 返回 nodes 数组
   return removedWhitespace ? nodes.filter(Boolean) : nodes
 }
 

@@ -1308,8 +1308,9 @@ function baseCreateRenderer(
     optimized
   ) => {
     // create reactive effect for rendering
-    // 创建响应式的带副作用渲染函数
+    // 创建响应式的带副作用渲染函数  给组件的实例设置一个update 方法
     instance.update = effect(function componentEffect() {
+      //  如果是初次 mount 的情况
       if (!instance.isMounted) {
         let vnodeHook: VNodeHook | null | undefined
         const { el, props } = initialVNode
@@ -1323,6 +1324,7 @@ function baseCreateRenderer(
           endMeasure(instance, `render`)
         }
         // beforeMount hook
+        // 生命周期函数- 钩子函数  beforeMount
         if (bm) {
           invokeArrayFns(bm)
         }
@@ -1364,7 +1366,8 @@ function baseCreateRenderer(
           // 保留渲染生成的子树根 DOM 节点
           initialVNode.el = subTree.el
         }
-        // mounted hook
+        // mounted hook 
+        // 生命周期函数-- mounted
         if (m) {
           // queuePostRenderEffect 加入事件队列之后依次执行
           queuePostRenderEffect(m, parentSuspense)
@@ -1387,7 +1390,7 @@ function baseCreateRenderer(
         }
         instance.isMounted = true
       } else {
-        // updateComponent
+        // updateComponent  更新组件的情况
         // This is triggered by mutation of component's own state (next: null)
         // OR parent calling processComponent (next: VNode)
         let { next, bu, u, parent, vnode } = instance
@@ -1413,6 +1416,7 @@ function baseCreateRenderer(
         instance.subTree = nextTree
         next.el = vnode.el
         // beforeUpdate hook
+        // 生命周期函数- beforeUpdate 
         if (bu) {
           invokeArrayFns(bu)
         }

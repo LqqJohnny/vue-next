@@ -54,6 +54,7 @@ export function getBaseTransformPreset(
 
 // we name it `baseCompile` so that higher order compilers like
 // @vue/compiler-dom can export `compile` while re-exporting everything else.
+// 编译 生成ast 树
 export function baseCompile(
   template: string | RootNode,
   options: CompilerOptions = {}
@@ -77,11 +78,13 @@ export function baseCompile(
   if (options.scopeId && !isModuleMode) {
     onError(createCompilerError(ErrorCodes.X_SCOPE_ID_NOT_SUPPORTED))
   }
-
+  // 生成 AST   baseParse 
   const ast = isString(template) ? baseParse(template, options) : template
   const [nodeTransforms, directiveTransforms] = getBaseTransformPreset(
     prefixIdentifiers
   )
+
+  //  AST 转换
   transform(
     ast,
     extend({}, options, {

@@ -515,7 +515,13 @@ export const locStub: SourceLocation = {
   start: { line: 1, column: 1, offset: 0 },
   end: { line: 1, column: 1, offset: 0 }
 }
-
+/**
+ * 创建 AST 根节点
+ * @param children 子节点 nodes数组 
+ * @param loc 位置
+ * 
+ * 就是简单的在 children外层再抱一个虚拟节点，并设置 type 为 root 。 并返回
+ */
 export function createRoot(
   children: TemplateChildNode[],
   loc = locStub
